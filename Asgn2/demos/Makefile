@@ -39,8 +39,8 @@ hungry: hungrysnakes.o  util.o ../lib64/libPLN.so ../lib64/libsnakes.so
 nums: numbersmain.o  util.o ../include/.
 	$(LD) $(LDFLAGS) -o nums numbersmain.o
 
-test: test.o ../include/rr.c ../include/rr.h
-	$(LD) $(LDFLAGS) -o test test.o
+test: test.o ../include/rr.c ../include/rr.h magic64.o
+	$(LD) $(LDFLAGS) -o test test.o magic64.o
 
 test.o: test.c ../include/rr.c ../include/rr.h
 	$(CC) $(CFLAGS) -c test.c
@@ -64,4 +64,4 @@ hs: hungry
 	(export LD_LIBRARY_PATH=../lib64; ./hungry)
 
 ns: nums
-	(export LD_LIBRARY_PATH=../include/lwp.h; ./nums)
+	(export LD_LIBRARY_PATH=../lib64; ./nums)

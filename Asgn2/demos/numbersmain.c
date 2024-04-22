@@ -44,6 +44,7 @@
 #include <unistd.h>
 #include "lwp.h"
 #include "rr.h"
+#include "rr.c"
 
 #define MAXSNAKES  100
 
