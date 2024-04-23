@@ -11,7 +11,8 @@ tid_t threadCount = 1;
 static void lwp_wrap(lwpfun fun, void *arg){
   int rval;
   rval=fun(arg);
-  lwp_exit(rval);
+  //lwp_exit(rval);
+  return;
 }
 
 tid_t lwp_create(lwpfun fun, void *arg){
