@@ -1,4 +1,3 @@
-#include "lwp.h"
 #include "rr.c"
 #include <sys/mman.h>
 #include <unistd.h>

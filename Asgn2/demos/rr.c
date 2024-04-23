@@ -1,11 +1,12 @@
+#include "lwp.h"
 #include "rr.h"
 
 thread head = NULL;
 
-void init_rr(){};
-void shutdown_rr(){};
+// void init_rr(){};
+// void shutdown_rr(){};
 
-void admit_rr(thread new){ // add thread to linked list
+void admit(thread new){ // add thread to linked list
   //HOW TO ACCESS GLOBAL THREAD HEAD
   if (head == NULL) {
     head = new;
@@ -23,7 +24,7 @@ void admit_rr(thread new){ // add thread to linked list
   return;
 
 };
-void remove_rr(thread victim){ // remove thread from queue
+void removeThread(thread victim){ // remove thread from queue
   if (head == NULL) {
     printf("Error: no threads scheduled");
     return;
@@ -60,11 +61,11 @@ void remove_rr(thread victim){ // remove thread from queue
   return;
 
 };
-thread next_rr(){ // select a thread to schedule
+thread next(){ // select a thread to schedule
   return head;
 };
 
-int qlen_rr(){ // number of ready threads 
+int qlen(){ // number of ready threads 
   if (head==NULL) {
     return 0;
   }
@@ -80,6 +81,6 @@ int qlen_rr(){ // number of ready threads
 };
 
 
-struct scheduler rr = {NULL, NULL, admit_rr, remove_rr, next_rr, qlen_rr};
+struct scheduler rr = {NULL, NULL, admit, removeThread, next, qlen};
 
 
