@@ -45,8 +45,8 @@ randomsnakes.o: lwp.h snakes.h
 
 numbermain.o: lwp.h
 
-libLWP.a: lwp.c rr.c util.c
-	gcc -c rr.c util.c lwp.c magic64.S 
+libLWP.a: lwp.c rr.c util.c helpers.c
+	gcc -c rr.c util.c lwp.c magic64.S
 	ar r libLWP.a util.o lwp.o rr.o magic64.o
 	rm lwp.o
 
