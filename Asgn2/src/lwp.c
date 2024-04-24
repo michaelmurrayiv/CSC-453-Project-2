@@ -86,14 +86,8 @@ extern void lwp_start(void){
 
   printRFile(&newState);
 
+  //create system context and add to scheduler
   rfile systemState;
-  //context set up incorrectly -> leads to error
-  swap_rfiles(&systemState, &newState);
-
-
-  //add current thread to scheduler
-  printRFile(&systemState);
-  
   struct rlimit limit;
   size_t lim = getrlimit(RLIMIT_STACK, &limit);
   if ((int)lim == -1) {
@@ -105,7 +99,7 @@ extern void lwp_start(void){
     threadCount,
     &systemState.rsp,
     limit.rlim_cur,
-    newState,
+    systemState,
     LWP_LIVE,
     NULL,
     NULL,
@@ -116,7 +110,9 @@ extern void lwp_start(void){
   thread systemThread = &context;
 
   threadCount++;
-
   s->admit(systemThread);
+
+  //newState set up incorrectly -> leads to error
+  swap_rfiles(&systemState, &newState);
   return;
 };
