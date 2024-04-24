@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    ".css": "tailwindcss",
+    "helpers.h": "c",
+    "stdio.h": "c"
+  }
+}
