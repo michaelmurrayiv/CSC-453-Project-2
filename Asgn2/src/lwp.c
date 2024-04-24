@@ -37,7 +37,7 @@ tid_t lwp_create(lwpfun fun, void *arg){
   }
   unsigned long *stack = (unsigned long *) mmap(NULL, stackSize, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0);
 
-  *stack = *stack + stackSize; // move sp to bottom of allocated memory
+  stack = stack + stackSize; // move sp to bottom of allocated memory
 
   //state setup
   rfile oldState;
@@ -49,36 +49,26 @@ tid_t lwp_create(lwpfun fun, void *arg){
   newState.rdi = (unsigned long) fun; // set return address to lwp_wrap function
   newState.rsi = (unsigned long) arg; // set rdi & other registers to input args
   
-  newState.rbp = (unsigned long) stack; // function address
-  newState.rsp = (unsigned long) lwp_wrap; // current stack??
+  newState.rsp = (unsigned long) fun; // current stack??
   newState.fxsave=FPU_INIT; //set floating point state as specified in doc
 
-
-  printRFile(&newState);
-  printf("before create swap\n");
-  swap_rfiles(&oldState, &newState);
-  printf("after create swap\n");
-  printRFile(&oldState);
- 
-
-
+  printf("val is %lx\n",fun);
   // create thread
-  thread newThread = malloc(sizeof (thread));
-  if (newThread == NULL) {
-    fprintf(stderr, "error: malloc for newThread failed\n");
-    abort();
-  }
-
-  newThread->tid = tid;
-  newThread->stack = stack;
-  newThread->stacksize = stackSize;
-  newThread->state = newState;
-  newThread->status = LWP_LIVE;
-  newThread->lib_one = NULL;
-  newThread->lib_two = NULL;
-  newThread->sched_one = NULL;
-  newThread->sched_two = NULL;
-  newThread->exited = NULL;
+  
+  context context = {
+    tid,
+    stack,
+    stackSize,
+    newState,
+    LWP_LIVE,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  };
+  thread newThread = &context;
+  printf("%lx\n", (unsigned long)newThread->state.rdi);
 
 //create thread m, admit to scheduler s
   s->admit(newThread);
@@ -87,17 +77,21 @@ tid_t lwp_create(lwpfun fun, void *arg){
 
 extern void lwp_start(void){
   //start running first thread in scheduler
-  
-  rfile systemState;
-  rfile newState;
-
+  printf("inside lwp_start\n");  
   scheduler s = &rr;
   thread next = s->next();
-  newState = next->state;
+  
+  //below call causes invalid read of size 8
+  rfile newState = next->state;
 
   printRFile(&newState);
 
+  rfile systemState;
+  //context set up incorrectly -> leads to error
   swap_rfiles(&systemState, &newState);
+
+
+  //add current thread to scheduler
   printRFile(&systemState);
   
   struct rlimit limit;
@@ -107,22 +101,19 @@ extern void lwp_start(void){
     abort();
   }
 
-  thread systemThread = malloc(sizeof (thread));
-  if (systemThread == NULL) {
-    fprintf(stderr, "error: malloc for systemThread failed\n");
-    abort();
-  }
-
-  systemThread->tid = threadCount;
-  systemThread->stack = &systemState.rsp;
-  systemThread->stacksize = limit.rlim_cur;
-  systemThread->state = newState;
-  systemThread->status = LWP_LIVE;
-  systemThread->lib_one = NULL;
-  systemThread->lib_two = NULL;
-  systemThread->sched_one = NULL;
-  systemThread->sched_two = NULL;
-  systemThread->exited = NULL;
+  context context = {
+    threadCount,
+    &systemState.rsp,
+    limit.rlim_cur,
+    newState,
+    LWP_LIVE,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  };
+  thread systemThread = &context;
 
   threadCount++;
 

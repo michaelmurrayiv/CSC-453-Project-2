@@ -8,14 +8,18 @@ void printThread(thread t) {
 }
 
 void printRFile(rfile* file) {
+  printf("1\n");
   printf("rfile contents:\n");
   // printf("rax: %lx\n",file->rax);
   // printf("rbx: %lx\n",file->rbx);
   // printf("rcx: %lx\n",file->rcx);
   // printf("rdx: %lx\n",file->rdx);
   printf("rsi: %lx\n",file->rsi);
+  printf("1\n");
   printf("rdi: %lx\n",file->rdi);
+  printf("1\n");
   printf("rbp: %lx\n",file->rbp);
+  printf("1\n");
   printf("rsp: %lx\n",file->rsp);
   // printf("r8: %lx\n",file->r8);
   // printf("r9: %lx\n",file->r9);
