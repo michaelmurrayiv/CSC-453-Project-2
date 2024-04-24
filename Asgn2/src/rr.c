@@ -80,7 +80,6 @@ int qlen(){ // number of ready threads
   return count;
 };
 
-
 struct scheduler rr = {NULL, NULL, admit, removeThread, next, qlen};
 
 

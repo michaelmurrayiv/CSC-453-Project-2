@@ -14,7 +14,7 @@ HUNGRYOBJS = hungrysnakes.o
 
 NUMOBJS    = numbersmain.o
 
-OBJS	= $(SNAKEOBJS) $(HUNGRYOBJS) $(NUMOBJS) 
+OBJS	= $(SNAKEOBJS) $(HUNGRYOBJS) $(NUMOBJS)
 
 SRCS	= randomsnakes.c numbersmain.c hungrysnakes.c
 
@@ -36,7 +36,7 @@ snakes: randomsnakes.o libLWP.a libsnakes.a
 hungry: hungrysnakes.o libLWP.a libsnakes.a
 	$(LD) $(LDFLAGS) -o hungry hungrysnakes.o -L. -lncurses -lsnakes -lLWP
 
-nums: numbersmain.o libLWP.a 
+nums: numbersmain.o libLWP.a
 	$(LD) $(LDFLAGS) -o nums numbersmain.o -L. -lLWP
 
 hungrysnakes.o: lwp.h snakes.h

@@ -1,4 +1,5 @@
 #include "rr.c"
+#include "helpers.c"
 #include <sys/mman.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -15,12 +16,14 @@ static void lwp_wrap(lwpfun fun, void *arg){
 }
 
 tid_t lwp_create(lwpfun fun, void *arg){
+  
   scheduler s = &rr;
 
   //tid
   tid_t tid = threadCount;
   threadCount++;
-
+  
+  printf("%d\n", arg);
   //allocate stack
   int stackSize = 1000000; //8MB size
   long memPageSize = sysconf(_SC_PAGESIZE);
@@ -36,6 +39,7 @@ tid_t lwp_create(lwpfun fun, void *arg){
 
   *stack = *stack + stackSize; // move sp to bottom of allocated memory
 
+  printf("here\n");
 
   //register setup
 
@@ -43,11 +47,13 @@ tid_t lwp_create(lwpfun fun, void *arg){
   rfile newState;
 
   //set state
-  newState.rsp = (unsigned long) lwp_wrap; // set return address to lwp_wrap function
-  newState.rdi = (unsigned long) arg; // set rdi & other registers to input args
+  newState.rdi = (unsigned long) lwp_wrap; // set return address to lwp_wrap function
+  newState.rsi = (unsigned long) arg; // set rdi & other registers to input args
   newState.fxsave=FPU_INIT; //set floating point state as specified in doc
+  printf("here2\n");
 
   swap_rfiles(&oldState, &newState);
+  printf("here3\n");
 
   //exit status
   unsigned int exitStatus = LWP_LIVE;
@@ -58,7 +64,6 @@ tid_t lwp_create(lwpfun fun, void *arg){
   thread sched_one = NULL;
   thread sched_two = NULL;
   thread exited = NULL;
-
   // create thread
   thread newThread = malloc(sizeof (thread));
   if (newThread == NULL) {
