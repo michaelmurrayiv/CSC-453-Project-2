@@ -59,7 +59,7 @@ int main(int argc, char *argv[]){
         i=1;
     lwp_create((lwpfun)indentnum,(void*)i);
   //}
-
+  printf("made it through create!\n");
   lwp_start();
 
   /* wait for the other LWPs */

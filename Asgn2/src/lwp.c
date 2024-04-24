@@ -46,15 +46,17 @@ tid_t lwp_create(lwpfun fun, void *arg){
   rfile oldState;
   rfile newState;
 
-  //set state
-  newState.rdi = (unsigned long) lwp_wrap; // set return address to lwp_wrap function
+  //set state 
+  newState.rdi = (unsigned long) fun; // set return address to lwp_wrap function
   newState.rsi = (unsigned long) arg; // set rdi & other registers to input args
   newState.fxsave=FPU_INIT; //set floating point state as specified in doc
-  newState.rbp = (unsigned long) 0x1ffefffde0; // valgrind says this is the return address
-  newState.rsp = (unsigned long) stack; // valgrind says this is where SP changes to
+  newState.rbp = (unsigned long) lwp_wrap; // function address
+  newState.rsp = (unsigned long) stack; // current stack??
   //NEED TO SET TO ADDRESS OF CALLED FUNCTION
   printRFile(&newState);
+  printf("IKIT\n");
   swap_rfiles(&oldState, &newState); //SHOULD RETURN BACK TO HERE
+  printf("htet\n");
   printRFile(&oldState);
  
 
