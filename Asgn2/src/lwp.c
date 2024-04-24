@@ -9,6 +9,7 @@
 tid_t threadCount = 1;
 
 static void lwp_wrap(lwpfun fun, void *arg){
+  printf("inside lwp_wrap\n");
   int rval;
   rval=fun(arg);
   //lwp_exit(rval);
@@ -16,14 +17,13 @@ static void lwp_wrap(lwpfun fun, void *arg){
 }
 
 tid_t lwp_create(lwpfun fun, void *arg){
-  
+
   scheduler s = &rr;
 
   //tid
   tid_t tid = threadCount;
   threadCount++;
   
-  printf("%d\n", arg);
   //allocate stack
   int stackSize = 1000000; //8MB size
   long memPageSize = sysconf(_SC_PAGESIZE);
@@ -39,24 +39,25 @@ tid_t lwp_create(lwpfun fun, void *arg){
 
   *stack = *stack + stackSize; // move sp to bottom of allocated memory
 
-  printf("here\n");
-
-  //register setup
-
+  //state setup
   rfile oldState;
   rfile newState;
 
-  //set state 
+// How do I call lwp_wrap/set up the registers for that?
+//??? which registers for which functions
+
   newState.rdi = (unsigned long) fun; // set return address to lwp_wrap function
   newState.rsi = (unsigned long) arg; // set rdi & other registers to input args
+  
+  newState.rbp = (unsigned long) stack; // function address
+  newState.rsp = (unsigned long) lwp_wrap; // current stack??
   newState.fxsave=FPU_INIT; //set floating point state as specified in doc
-  newState.rbp = (unsigned long) lwp_wrap; // function address
-  newState.rsp = (unsigned long) stack; // current stack??
-  //NEED TO SET TO ADDRESS OF CALLED FUNCTION
+
+
   printRFile(&newState);
-  printf("IKIT\n");
-  swap_rfiles(&oldState, &newState); //SHOULD RETURN BACK TO HERE
-  printf("htet\n");
+  printf("before create swap\n");
+  swap_rfiles(&oldState, &newState);
+  printf("after create swap\n");
   printRFile(&oldState);
  
 
