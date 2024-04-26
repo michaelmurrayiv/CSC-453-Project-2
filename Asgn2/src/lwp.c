@@ -6,7 +6,11 @@
 #include <sys/resource.h>
 #include <string.h>
 
-tid_t threadCount = 1;
+tid_t threadNum = 2; //system thread will be thread 1
+thread currThread = NULL;
+thread threadList = NULL; // all system threads for tid2thread
+thread waitQueue = NULL; // waiting threads
+thread exitedQueue = NULL; // finished threads
 
 static void lwp_wrap(lwpfun fun, void *arg){
   printf("inside lwp_wrap\n");
@@ -17,11 +21,10 @@ static void lwp_wrap(lwpfun fun, void *arg){
 }
 
 tid_t lwp_create(lwpfun fun, void *arg){
-
-  scheduler s = &rr;
+  scheduler s = lwp_get_scheduler();
 
   //tid
-  tid_t tid = threadCount;
+  tid_t tid = threadNum;
   
   //allocate stack
   long stackSize = 1000000; //8MB size
@@ -78,7 +81,7 @@ tid_t lwp_create(lwpfun fun, void *arg){
   if (newThread != MAP_FAILED) {
     memcpy(newThread, &context, sizeof(context));
   }
-  threadCount++;
+  threadNum++;
   printf("%lx\n", (unsigned long)&newThread->state);
   printRFile(&newThread->state);  
 
@@ -88,27 +91,22 @@ tid_t lwp_create(lwpfun fun, void *arg){
 };
 
 extern void lwp_start(void){
-  //start running first thread in scheduler
   printf("inside lwp_start\n");  
-  scheduler s = &rr;
-  thread next = s->next();
-
-  //below call causes invalid read of size 8
-  rfile newState = next->state;
-
-  printRFile(&newState);
-
-  //create system context and add to scheduler
+  //create system thread and add to scheduler
+  scheduler s = lwp_get_scheduler();
+  thread new = s->next();
   rfile systemState;
+  rfile newState = new->state;
   struct rlimit limit;
   size_t lim = getrlimit(RLIMIT_STACK, &limit);
   if ((int)lim == -1) {
     fprintf(stderr, "error: getrlimit failed in lwp_start");
     abort();
   }
-
+  tid_t tid = 1;
+  //system context
   context context = {
-    threadCount,
+    tid,
     NULL,
     limit.rlim_cur,
     systemState,
@@ -123,10 +121,52 @@ extern void lwp_start(void){
   if (systemThread != MAP_FAILED) {
     memcpy(systemThread, &context, sizeof(context));
   }
-  threadCount++;
   s->admit(systemThread);
-
-  //newState set up incorrectly -> leads to error
+  //yield to new thread
   swap_rfiles(&systemState, &newState);
   return;
 };
+
+tid_t lwp_gettid(){
+  if (currThread==NULL){
+    return NO_THREAD;
+  }
+  return currThread->tid;
+}
+
+thread tid2thread(tid_t tid){
+  thread ret = threadList;
+  while (ret!=NULL){
+    if (ret->tid==tid) {
+      break;
+    }
+    ret = ret->lib_two;
+  }
+  return ret;
+}
+
+void lwp_yield() {
+  printf("inside lwp_yield\n");
+  scheduler s = lwp_get_scheduler();
+  thread old = s->next(); //move current thread to back of scheduler
+  s->remove(old);
+  s->admit(old);
+  thread new = s->next(); //get next thread
+  printf("%d\n", (int)lwp_gettid());
+  swap_rfiles(&old->state, &new->state);
+  printf("here\n");
+  return; 
+}
+
+scheduler lwp_get_scheduler(){
+  return &rr;
+}
+
+void lwp_set_scheduler(scheduler new){
+  if (new==NULL) {
+    return;
+  } else {
+    rr=*new;
+    return;
+  }
+}
