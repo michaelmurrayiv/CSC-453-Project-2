@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-
+#include <string.h>
 
 tid_t threadCount = 1;
 
@@ -22,39 +22,46 @@ tid_t lwp_create(lwpfun fun, void *arg){
 
   //tid
   tid_t tid = threadCount;
-  threadCount++;
   
   //allocate stack
-  int stackSize = 1000000; //8MB size
+  long stackSize = 1000000; //8MB size
   long memPageSize = sysconf(_SC_PAGESIZE);
   struct rlimit limit;
   size_t lim = getrlimit(RLIMIT_STACK, &limit);
   if ((int)lim != -1 && limit.rlim_cur != RLIM_INFINITY) { // check if RLIMIT_STACK exists, if not use 8MB
     stackSize = limit.rlim_cur;
   }
-  if (stackSize%(int)memPageSize != 0) { // make sure that stack size is a multiple of the memory page size
-    stackSize = stackSize/memPageSize+memPageSize;
+  if (stackSize%memPageSize == 0) { // make sure that stack size is a multiple of the memory page size
+    stackSize = (stackSize/memPageSize + 1) * (memPageSize);
   }
   unsigned long *stack = (unsigned long *) mmap(NULL, stackSize, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0);
+  printf("stack address: %lx\n",(unsigned long) stack);
+  printf("stack size: %lx\n",(unsigned long) stackSize);
 
-  stack = stack + stackSize; // move sp to bottom of allocated memory
+  stack = stack + stackSize/(sizeof(unsigned long)); // go to bottom of stack
+  printf("stack address: %lx\n",(unsigned long) stack);
+  //here I want to push lwp_wrap to stack
+  stack = stack - 2; //decrement stack by 16 bytes
+  *stack = (unsigned long) lwp_wrap;
+
+  printf("stack address: %lx\n", (unsigned long)stack);
+  printf("val in stack: %lu\n", *stack);
+  printf("stack address: %lx\n", (unsigned long)stack);
+
+  //increment stack by 16 bytes to be above ret
+  stack--;
+  printf("stack address: %lx\n", (unsigned long)stack);
 
   //state setup
   rfile oldState;
   rfile newState;
 
-// How do I call lwp_wrap/set up the registers for that?
-//??? which registers for which functions
-
   newState.rdi = (unsigned long) fun; // set return address to lwp_wrap function
   newState.rsi = (unsigned long) arg; // set rdi & other registers to input args
-  
-  newState.rsp = (unsigned long) fun; // current stack??
+  newState.rbp = (unsigned long) stack;
   newState.fxsave=FPU_INIT; //set floating point state as specified in doc
 
-  printf("val is %lx\n",fun);
   // create thread
-  
   context context = {
     tid,
     stack,
@@ -67,8 +74,13 @@ tid_t lwp_create(lwpfun fun, void *arg){
     NULL,
     NULL
   };
-  thread newThread = &context;
-  printf("%lx\n", (unsigned long)newThread->state.rdi);
+  thread newThread = mmap(NULL, sizeof(thread), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+  if (newThread != MAP_FAILED) {
+    memcpy(newThread, &context, sizeof(context));
+  }
+  threadCount++;
+  printf("%lx\n", (unsigned long)&newThread->state);
+  printRFile(&newThread->state);  
 
 //create thread m, admit to scheduler s
   s->admit(newThread);
@@ -80,7 +92,7 @@ extern void lwp_start(void){
   printf("inside lwp_start\n");  
   scheduler s = &rr;
   thread next = s->next();
-  
+
   //below call causes invalid read of size 8
   rfile newState = next->state;
 
@@ -97,7 +109,7 @@ extern void lwp_start(void){
 
   context context = {
     threadCount,
-    &systemState.rsp,
+    NULL,
     limit.rlim_cur,
     systemState,
     LWP_LIVE,
@@ -107,8 +119,10 @@ extern void lwp_start(void){
     NULL,
     NULL
   };
-  thread systemThread = &context;
-
+  thread systemThread = mmap(NULL, sizeof(thread), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+  if (systemThread != MAP_FAILED) {
+    memcpy(systemThread, &context, sizeof(context));
+  }
   threadCount++;
   s->admit(systemThread);
 
