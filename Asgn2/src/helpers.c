@@ -29,3 +29,19 @@ void printRFile(rfile* file) {
 
   return;
 }
+
+void addThread(thread threadList, thread newThread){
+    if (threadList==NULL){
+    threadList=newThread;
+  } else {
+    while (threadList->lib_two!=NULL) { 
+      threadList = threadList->lib_two;
+    }
+    newThread->lib_one=threadList;
+    threadList->lib_two=newThread;
+    while (threadList->lib_one!=NULL){
+      threadList = threadList->lib_one;
+    }
+  }
+  return;
+}

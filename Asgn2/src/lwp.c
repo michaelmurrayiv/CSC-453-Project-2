@@ -85,8 +85,10 @@ tid_t lwp_create(lwpfun fun, void *arg){
   printf("%lx\n", (unsigned long)&newThread->state);
   printRFile(&newThread->state);  
 
-//create thread m, admit to scheduler s
+  //create thread m, admit to scheduler s and add to list
   s->admit(newThread);
+  addThread(threadList, newThread);
+
   return tid;
 };
 
@@ -122,6 +124,8 @@ extern void lwp_start(void){
     memcpy(systemThread, &context, sizeof(context));
   }
   s->admit(systemThread);
+  addThread(threadList, systemThread);
+
   //yield to new thread
   swap_rfiles(&systemState, &newState);
   return;
@@ -148,11 +152,16 @@ thread tid2thread(tid_t tid){
 void lwp_yield() {
   printf("inside lwp_yield\n");
   scheduler s = lwp_get_scheduler();
-  thread old = s->next(); //move current thread to back of scheduler
-  s->remove(old);
-  s->admit(old);
-  thread new = s->next(); //get next thread
-  printf("%d\n", (int)lwp_gettid());
+  tid_t curr = lwp_gettid();
+  thread old = tid2thread(curr);
+  thread new = s->next();
+
+  s->remove(new); // move thread to back of scheduler
+  s->admit(new);
+
+  printf("%lu\n", (unsigned long) new->tid);
+  currThread=new;
+  printf("here!\n");
   swap_rfiles(&old->state, &new->state);
   printf("here\n");
   return; 
