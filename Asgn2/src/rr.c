@@ -16,6 +16,7 @@ void admit(thread new){ // add thread to linked list
     head = head->sched_two;
   }
   new->sched_one = head; // set prev for new thread
+  new->sched_two = NULL; // set next to null 
   head->sched_two = new; // set next as new thread
 
   while (head->sched_one != NULL) { // move to head of list
@@ -25,6 +26,7 @@ void admit(thread new){ // add thread to linked list
 
 };
 void removeThread(thread victim){ // remove thread from queue
+  printf("inside removethread\n");
   if (head == NULL) {
     printf("Error: no threads scheduled");
     return;
@@ -42,6 +44,7 @@ void removeThread(thread victim){ // remove thread from queue
     head=NULL;
     return;
   } else if (prev==NULL) {
+    printf("here?\n");
     head = next;
     head->sched_one = NULL;
   } else if (next==NULL) {

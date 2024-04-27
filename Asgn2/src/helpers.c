@@ -1,9 +1,9 @@
 #include "helpers.h"
 
 
-void printThread(thread t) {
+void printThread(thread *t) {
   printf("thread contents:\n");
-  printf("%d\n",t->tid);
+  printf("%d\n",(*t)->tid);
   return;
 }
 
@@ -31,7 +31,7 @@ void printRFile(rfile* file) {
 }
 
 void addThread(thread threadList, thread newThread){
-    if (threadList==NULL){
+  if (threadList==NULL){
     threadList=newThread;
   } else {
     while (threadList->lib_two!=NULL) { 
