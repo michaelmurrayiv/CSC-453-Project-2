@@ -13,7 +13,6 @@ thread waitQueue = NULL; // waiting threads
 thread exitedQueue = NULL; // finished threads
 
 static void lwp_wrap(lwpfun fun, void *arg){
-  // printf("inside lwp_wrap\n");
   int rval;
   rval=fun(arg);
   lwp_exit(rval);
@@ -93,7 +92,6 @@ tid_t lwp_create(lwpfun fun, void *arg){
 };
 
 extern void lwp_start(void){
- // printf("inside lwp_start\n");  
   //create system thread and add to scheduler
   scheduler s = lwp_get_scheduler();
   thread new = s->next();
@@ -138,12 +136,6 @@ extern void lwp_start(void){
       threadList = threadList->lib_one;
     }
   }
-
-  // printThread(&new);
-  // printThread(&systemThread);
-  // printf("scheduler: \n");
-  // thread nxt = s->next(); printThread(&nxt);
-  // thread lst = nxt->sched_two; printThread(&lst);
 
   //yield to new thread
   currThread=new;
@@ -191,17 +183,6 @@ void lwp_yield() {
   }
   currThread = new;
 
-  // printf("inside lwp_yield function\n");
-  // tid_t tid = lwp_gettid(); thread c = tid2thread(tid); printf("currthread = \n"); printThread(&c);
-  // // printf("thread list = \n");
-  // // printThread(&threadList);
-  // // printThread(&(threadList->lib_two));
-  // printf("scheduler: \n");
-  // thread nxt = s->next(); printThread(&nxt);
-  // printf("exit queue\n");
-  // if (exitedQueue!=NULL) { printThread(&exitedQueue); }
-  // printf("waitqueue\n");
-  // if (waitQueue!=NULL) { printThread(&waitQueue); }
   swap_rfiles(&old->state, &new->state);
   return; 
 }
@@ -227,7 +208,6 @@ void lwp_set_scheduler(scheduler fun){
 }
 
 void lwp_exit(int status){
-  // printf("in lwp exit\n");
   tid_t tid = lwp_gettid();
   if (tid==NO_THREAD){
     fprintf(stderr, "error: lwp_exit called on NO_THREAD");
@@ -240,9 +220,8 @@ void lwp_exit(int status){
     if (curr->sched_two!=NULL){
       fprintf(stderr, "error: lwp_exit called on main with nonempty queue");
       abort();
-    } else {
+    } else { //exit
       exit(0);
-      //deallocate and exit
     }
   }
 
@@ -260,29 +239,12 @@ void lwp_exit(int status){
 
   scheduler s = lwp_get_scheduler();
   
-  // thread temp = s->next(); printThread(&temp); printThread(&curr);
   if (waitQueue!=NULL){
     thread newHead = waitQueue->exited;
     waitQueue->exited=NULL;
     waitQueue->status=LWP_LIVE;
     s->admit(waitQueue);
-    waitQueue = newHead;
-
-  // printf("this is in the exit function:)\n");
-
-  // printf("currthread = \n"); printThread(&curr);
-  // // printf("thread list = \n");
-  // // printThread(&threadList);
-  // // printThread(&(threadList->lib_two));
-  // printf("scheduler: \n");
-  // thread nxt = s->next(); printThread(&nxt);
-  // thread lst = nxt->sched_two; printThread(&lst);
-
-  // printf("waitqueue\n"); if (waitQueue==NULL){printf("null\n");}
-
-  // printf("exitqueue\n"); printThread(&exitedQueue);
-
-    
+    waitQueue = newHead;    
   }
   lwp_yield();
 }
