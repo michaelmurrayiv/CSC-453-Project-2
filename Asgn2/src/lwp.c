@@ -37,7 +37,9 @@ tid_t lwp_create(lwpfun fun, void *arg){
     stackSize = (stackSize/memPageSize + 1) * (memPageSize);
   }
   unsigned long *stack = (unsigned long *) mmap(NULL, stackSize, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0);
- 
+  if (stack==NULL) {
+    perror("mmap failed");
+  }
   stack = stack + stackSize/(sizeof(unsigned long)); // go to bottom of stack
  
   stack = stack - 2; //decrement stack by 16 bytes
@@ -174,13 +176,14 @@ void lwp_yield() {
   }
   s->remove(old);
   thread new = s->next();
-
   if (new==NULL){
     lwp_exit(3);
   }
+  
   if (old->status==LWP_LIVE){
     s->admit(old);
   }
+  
   currThread = new;
 
   swap_rfiles(&old->state, &new->state);
@@ -221,6 +224,7 @@ void lwp_exit(int status){
       fprintf(stderr, "error: lwp_exit called on main with nonempty queue");
       abort();
     } else { //exit
+      munmap(curr, sizeof(thread));
       exit(0);
     }
   }
@@ -268,14 +272,13 @@ tid_t lwp_wait(int *status){
       waitQueue->exited = curr;
       waitQueue = head;
     }
-
     lwp_yield();
-
   } 
    //deallocate head of exited queue
- 
     tid_t ret = exitedQueue->tid;
-    *status = exitedQueue->status;
+    if (status!=NULL) {
+      *status = exitedQueue->status;
+    }
     //remove from thread list
     while (threadList->tid!=ret){
       threadList=threadList->lib_two;

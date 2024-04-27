@@ -25,10 +25,14 @@ void admit(thread new){ // add thread to linked list
   return;
 };
 void removeThread(thread victim){ // remove thread from queue
+  if (victim==NULL) {
+    return;
+  }
   if (head == NULL) {
-    printf("Error: no threads scheduled");
+    perror("no threads scheduled");
     abort();
   }
+
   tid_t curr = head->tid;
   while (curr != victim->tid) { // find victim
     head = head->sched_two;
@@ -41,7 +45,6 @@ void removeThread(thread victim){ // remove thread from queue
     head=NULL;
     return;
   } else if (prev==NULL) {
-    
     head = next;
     head->sched_one = NULL;
   } else if (next==NULL) {
