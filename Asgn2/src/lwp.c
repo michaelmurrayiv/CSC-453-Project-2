@@ -38,23 +38,13 @@ tid_t lwp_create(lwpfun fun, void *arg){
     stackSize = (stackSize/memPageSize + 1) * (memPageSize);
   }
   unsigned long *stack = (unsigned long *) mmap(NULL, stackSize, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0);
-  printf("stack address: %lx\n",(unsigned long) stack);
-  printf("stack size: %lx\n",(unsigned long) stackSize);
-
+ 
   stack = stack + stackSize/(sizeof(unsigned long)); // go to bottom of stack
-  printf("stack address: %lx\n",(unsigned long) stack);
-  //here I want to push lwp_wrap to stack
+ 
   stack = stack - 2; //decrement stack by 16 bytes
   *stack = (unsigned long) lwp_wrap;
-
-  printf("stack address: %lx\n", (unsigned long)stack);
-  printf("val in stack: %lu\n", *stack);
-  printf("stack address: %lx\n", (unsigned long)stack);
-
-  //increment stack by 16 bytes to be above ret
   stack--;
-  printf("stack address: %lx\n", (unsigned long)stack);
-
+  
   //state setup
   rfile oldState;
   rfile newState;
@@ -81,8 +71,7 @@ tid_t lwp_create(lwpfun fun, void *arg){
   if (newThread != MAP_FAILED) {
     memcpy(newThread, &context, sizeof(context));
   }
-  threadNum++;
-  printRFile(&newThread->state);  
+  threadNum++; 
 
   //create thread m, admit to scheduler s and add to list
   s->admit(newThread);
@@ -100,8 +89,6 @@ tid_t lwp_create(lwpfun fun, void *arg){
     }
   }
 
-  printf("comon\n");
-printf("%d\n",(int) threadList->tid);
   return tid;
 };
 
@@ -142,19 +129,16 @@ extern void lwp_start(void){
     threadList=systemThread;
   } else {
     while (threadList->lib_two!=NULL) {
-      printf("d\n");
       threadList = threadList->lib_two;
     }
     systemThread->lib_one=threadList;
     threadList->lib_two=systemThread;
 
     while (threadList->lib_one!=NULL){
-      threadList = threadList->lib_one;  printf("d2\n");
+      threadList = threadList->lib_one;
     }
   }
-  printf("%d\n",(int)new->tid);
-  printf("%d\n",(int)threadList->tid);
-  printThread(&threadList);
+
   //yield to new thread
   lwp_yield();
   return;
@@ -169,20 +153,10 @@ tid_t lwp_gettid(){
 
 thread tid2thread(tid_t tid){
   thread ret = threadList;
-  printf("debug\n");
-  printf("%d\n",(int) threadList->tid);
-  if (threadList->lib_one==NULL){
-    printf("one null\n");
-  }
-  if (threadList->lib_two==NULL){
-    printf("two null\n");
-  }
   while (ret!=NULL){
-    printf("%d\n",(int) tid);
     if (ret->tid==tid) {
       break;
     }
-    printf("%d\n", (int)ret->tid);
     ret = ret->lib_two;
   }
   return ret;
@@ -192,26 +166,25 @@ void lwp_yield() {
   printf("inside lwp_yield\n");
   scheduler s = lwp_get_scheduler();
   tid_t curr = lwp_gettid();
-  thread old;printf("here!\n");
+  thread old;
   if (curr==NO_THREAD){ //check for system thread
-    tid_t t = 1;printf("aaa!\n");
+  printf("here/n");
+    tid_t t = 1;
     old = tid2thread(t);
-    printThread(&old);
   } else {
     old = tid2thread(curr);
-  }printf("here!\n");
-  thread new = s->next();printf("here!\n");
-  printf("oncde\n");
-  s->remove(new); printf("sddddd\n");// move thread to back of scheduler
-  s->admit(new);printf("here!\n");
-  tid_t o = old->tid;printf("hersdfe!\n");
-  tid_t n = new->tid;printf("heredsf!\n");
-  printf("%d\n", (int)o);
-  printf("%d\n", (int)n);printf("here!\n");
+  }
+  thread new = s->next();
+  if (new==NULL){
+    lwp_exit(3);
+  }
+  s->remove(new);// remove thread from scheduler
+  if (new->status==LWP_LIVE){
+    s->admit(new);
+  }
+
   currThread=new;
-  printf("here!\n");
   swap_rfiles(&old->state, &new->state);
-  printf("here\n");
   return; 
 }
 
@@ -223,25 +196,27 @@ void lwp_set_scheduler(scheduler fun){
   if (fun==NULL) {
     return;
   } else {
+    scheduler s = lwp_get_scheduler();
+    fun->init();
+    while (s->next()!=NULL){
+      thread tmp = s->next();
+      s->remove(tmp);
+      fun->admit(tmp);
+    }
     rr=*fun;
     return;
   }
 }
 
 void lwp_exit(int status){
-  printf("lwpexit\n");
+  int i = 0;
   tid_t tid = lwp_gettid();
   if (tid==NO_THREAD){
     fprintf(stderr, "error: lwp_exit called on NO_THREAD");
     abort();
   }
-   printf("tid is: %d\n", tid);
-   printf("lwpexit2\n");
   thread curr = tid2thread(tid);
-   printf("lwpexit2.5\n");
-    printf("tid: %d\n",(int)curr->tid);
   curr->status = (unsigned int) status;
-   printf("lwpexit3\n");
   if (exitedQueue==NULL){
     exitedQueue=curr;
   } else {
@@ -252,7 +227,72 @@ void lwp_exit(int status){
     exitedQueue->exited = curr;
     exitedQueue = head;
   }
-   printf("lwpexit4\n");
+  scheduler s = lwp_get_scheduler();
+  s->remove(curr);
+  if (waitQueue!=NULL){
+    thread newHead = waitQueue->exited;
+    waitQueue->exited=NULL;
+    s->admit(waitQueue);
+    waitQueue = newHead;
+  }
   lwp_yield();
+}
 
+tid_t lwp_wait(int *status){
+  printf("in lwp wait\n");
+  scheduler s = lwp_get_scheduler();
+  tid_t tid = lwp_gettid();
+  thread curr = tid2thread(tid);
+  if (exitedQueue==NULL){ //add to waiting threads
+    if (s->qlen() == 0){ //if there are no threads remaining
+      return NO_THREAD;
+    }
+    if (waitQueue==NULL){
+      waitQueue=curr;
+    } else {
+      thread head = waitQueue;
+      while (waitQueue->exited!=NULL){
+        waitQueue = waitQueue->exited;
+      }
+      waitQueue->exited = curr;
+      waitQueue = head;
+    }
+    lwp_yield();
+  } else { //deallocate head of exited queue
+    tid_t ret = exitedQueue->tid;
+    *status = exitedQueue->status;
+    //remove from thread list
+    while (threadList->tid!=ret){
+      threadList=threadList->lib_two;
+    }
+    thread prev = threadList->lib_one;
+    thread next = threadList->lib_two;
+
+    if (prev==NULL && next==NULL) {
+      threadList=NULL;
+      return;
+    } else if (prev==NULL) {
+      threadList = next;
+      threadList->lib_one = NULL;
+    } else if (next==NULL) {
+      threadList = prev;
+      threadList->lib_two = NULL;
+    } else {
+      threadList=next;
+      threadList->lib_one=prev;
+      threadList=prev;
+      threadList->lib_two=next;
+    }
+
+
+    //deallocate memory
+    thread newHead = exitedQueue->exited;
+    if (exitedQueue->tid!=(tid_t)1){
+      int i = munmap(exitedQueue->stack, exitedQueue->stacksize);
+    }
+    int j = munmap(exitedQueue, sizeof(thread));
+    exitedQueue = newHead;
+    
+    return tid;
+  }
 }
