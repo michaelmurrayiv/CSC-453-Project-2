@@ -13,11 +13,11 @@ void printThread(thread *t) {
   thread thread = *t;
   printf("Thread Content:\n\ttid: %d\n",thread->tid);
   printf("\tstatus: %d\n", thread->status);
-  printThreadVal(thread->lib_one, "lib_one");
-  printThreadVal(thread->lib_two, "lib_two");
-  printThreadVal(thread->sched_two, "sched_two");
-  printThreadVal(thread->sched_one, "sched_one");
-  printThreadVal(thread->exited, "exited");
+  // printThreadVal(thread->lib_one, "lib_one");
+  // printThreadVal(thread->lib_two, "lib_two");
+  printThreadVal(thread->sched_two, "next");
+  printThreadVal(thread->sched_one, "prev");
+  printThreadVal(thread->exited, "exited (next)");
   return;
 }
 
