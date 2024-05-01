@@ -92,11 +92,6 @@ tid_t lwp_create(lwpfun fun, void *arg){
     }
   }
 
-  fprintf(stderr, "first tid should be 2: %d\n", newThread->tid);
-  int l = s->qlen();
-  fprintf(stderr, "length should be 1: %d\n", l);
-
-
   return tid;
 };
 
@@ -147,17 +142,7 @@ extern void lwp_start(void){
   }
   //yield to new thread
   currThread=new;
-
- fprintf(stderr, "\nsystem tid should be 1: %d\n", systemThread->tid);
-  thread n = s->next();
-  fprintf(stderr, "scheduled tid should be 2: %d\n", n->tid);
-  fprintf(stderr, "currThread tid should be 2: %d\n", currThread->tid);
-  int l = s->qlen();
-  fprintf(stderr, "length should be 2: %d\n\n", l);
-
   swap_rfiles(&(systemThread->state), &newState);
-
- 
   return;
 };
 
@@ -173,34 +158,16 @@ thread tid2thread(tid_t tid){
     threadList = threadList->lib_one;
   }
   thread ret = threadList;
-
-  
-    fprintf(stderr, "search tid in tid2thread is: %d\n", tid);
-
-  if (ret->lib_one!=NULL){
-      fprintf(stderr, "l1 tid in tid2thread is: %d\n", ret->lib_one->tid);
-
-  }
   while (ret!=NULL){
-      fprintf(stderr, "curr tid in tid2thread is: %d\n", ret->tid);
-
     if (ret->tid==tid) {
       break;
     }
     ret = ret->lib_two;
   }
-  if (ret==NULL) {
-    fprintf(stderr, "NULL IN TID2THREAD\n");
-  } else {
-    fprintf(stderr, "hooray\n");
-  }
-  tid_t t = ret->tid;
   return ret;
 }
 
 void lwp_yield() {
-  fprintf(stderr, "\nentering yield time %d\n", nextTime);
-
   scheduler s = lwp_get_scheduler();
   tid_t curr = lwp_gettid();
 
@@ -210,21 +177,6 @@ void lwp_yield() {
   } else {
     old = tid2thread(curr);
   }    
-
-    int l = s->qlen(); 
-    fprintf(stderr, "len is: %d\n", l);
-    fprintf(stderr, "currThread tid is: %d\n", currThread->tid);
-    fprintf(stderr, "curr tid is: %d\n", curr);
-    if (old==NULL) {
-      fprintf(stderr, "old is null?\n");
-    }
-    fprintf(stderr, "old tid is: %d\n", old->tid);
-    if (old->status == LWP_LIVE) {
-      fprintf(stderr, "old status is LWP_LIVE right now\n");
-    } else {
-      fprintf(stderr, "old status NOT LWP_LIVE right now\n");
-    }
-  
   s->remove(old);
 
   if (old->status==LWP_LIVE){
@@ -232,12 +184,9 @@ void lwp_yield() {
   }
 
   thread new = s->next();
-  fprintf(stderr, "new tid is: %d\n\n", new->tid);
   if (new==NULL){
     lwp_exit(3);
   }
- 
-
 
   currThread = new;
 
@@ -266,7 +215,6 @@ void lwp_set_scheduler(scheduler fun){
 }
 
 void lwp_exit(int status){
-fprintf(stderr, "entering exit\n");
   scheduler s = lwp_get_scheduler();
   tid_t tid = lwp_gettid();
   if (tid==NO_THREAD){
@@ -313,17 +261,9 @@ fprintf(stderr, "entering exit\n");
 }
 
 tid_t lwp_wait(int *status){
-  fprintf(stderr, "\nentering wait\n");
-
   scheduler s = lwp_get_scheduler();
   tid_t tid = lwp_gettid();
   thread curr = tid2thread(tid);
-
-  int l = s->qlen(); fprintf(stderr, "len is %d\n", l);
-  fprintf(stderr, "currThread tid should be 1: %d\n", currThread->tid);
-  fprintf(stderr, "curr tid should be 1: %d\n", tid);
-    
-
 
   if (exitedQueue==NULL){ //if none have exited, block thread
     if (s->qlen() <= 1){ //if there are no threads remaining
@@ -340,12 +280,6 @@ tid_t lwp_wait(int *status){
       waitQueue->exited = curr;
       waitQueue = tmp;
     }
-
-    int l = s->qlen(); fprintf(stderr, "post wait len is %d\n", l);
-  fprintf(stderr, "currThread tid should be 1: %d\n", currThread->tid);
-  fprintf(stderr, "curr tid should be 1: %d\n", curr->tid);
-  fprintf(stderr, "waitQ tid should be 1: %d\n\n", waitQueue->tid);
-    nextTime = 1;
 
     lwp_yield();
   } 
