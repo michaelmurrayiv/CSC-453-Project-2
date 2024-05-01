@@ -12,6 +12,8 @@ thread threadList = NULL; // all system threads for tid2thread
 thread waitQueue = NULL; // waiting threads
 thread exitedQueue = NULL; // finished threads
 
+int nextTime = 0;
+
 static void lwp_wrap(lwpfun fun, void *arg){
   int rval;
   rval=fun(arg);
@@ -41,7 +43,7 @@ tid_t lwp_create(lwpfun fun, void *arg){
     perror("mmap failed");
   }
   stack = stack + stackSize/(sizeof(unsigned long)); // go to bottom of stack
- 
+
   stack = stack - 2; //decrement stack by 16 bytes
   *stack = (unsigned long) lwp_wrap;
   stack--;
@@ -90,6 +92,11 @@ tid_t lwp_create(lwpfun fun, void *arg){
     }
   }
 
+  fprintf(stderr, "first tid should be 2: %d\n", newThread->tid);
+  int l = s->qlen();
+  fprintf(stderr, "length should be 1: %d\n", l);
+
+
   return tid;
 };
 
@@ -119,7 +126,7 @@ extern void lwp_start(void){
     NULL,
     NULL
   };
-  thread systemThread = mmap(NULL, sizeof(thread), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+  thread systemThread = mmap(NULL, sizeof(context), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
   if (systemThread != MAP_FAILED) {
     memcpy(systemThread, &context, sizeof(context));
   }
@@ -138,10 +145,19 @@ extern void lwp_start(void){
       threadList = threadList->lib_one;
     }
   }
-
   //yield to new thread
   currThread=new;
+
+ fprintf(stderr, "\nsystem tid should be 1: %d\n", systemThread->tid);
+  thread n = s->next();
+  fprintf(stderr, "scheduled tid should be 2: %d\n", n->tid);
+  fprintf(stderr, "currThread tid should be 2: %d\n", currThread->tid);
+  int l = s->qlen();
+  fprintf(stderr, "length should be 2: %d\n\n", l);
+
   swap_rfiles(&(systemThread->state), &newState);
+
+ 
   return;
 };
 
@@ -153,37 +169,76 @@ tid_t lwp_gettid(){
 }
 
 thread tid2thread(tid_t tid){
+  while (threadList != NULL && threadList->lib_one!=NULL) {
+    threadList = threadList->lib_one;
+  }
   thread ret = threadList;
+
+  
+    fprintf(stderr, "search tid in tid2thread is: %d\n", tid);
+
+  if (ret->lib_one!=NULL){
+      fprintf(stderr, "l1 tid in tid2thread is: %d\n", ret->lib_one->tid);
+
+  }
   while (ret!=NULL){
+      fprintf(stderr, "curr tid in tid2thread is: %d\n", ret->tid);
+
     if (ret->tid==tid) {
       break;
     }
     ret = ret->lib_two;
   }
+  if (ret==NULL) {
+    fprintf(stderr, "NULL IN TID2THREAD\n");
+  } else {
+    fprintf(stderr, "hooray\n");
+  }
+  tid_t t = ret->tid;
   return ret;
 }
 
 void lwp_yield() {
-  // printf("inside lwp_yield\n");
+  fprintf(stderr, "\nentering yield time %d\n", nextTime);
+
   scheduler s = lwp_get_scheduler();
   tid_t curr = lwp_gettid();
+
   thread old;
   if (curr==NO_THREAD){ //check for system thread
-    tid_t t = 1;
-    old = tid2thread(t);
+    exit(0);
   } else {
     old = tid2thread(curr);
-  }
-  s->remove(old);
-  thread new = s->next();
-  if (new==NULL){
-    lwp_exit(3);
-  }
+  }    
+
+    int l = s->qlen(); 
+    fprintf(stderr, "len is: %d\n", l);
+    fprintf(stderr, "currThread tid is: %d\n", currThread->tid);
+    fprintf(stderr, "curr tid is: %d\n", curr);
+    if (old==NULL) {
+      fprintf(stderr, "old is null?\n");
+    }
+    fprintf(stderr, "old tid is: %d\n", old->tid);
+    if (old->status == LWP_LIVE) {
+      fprintf(stderr, "old status is LWP_LIVE right now\n");
+    } else {
+      fprintf(stderr, "old status NOT LWP_LIVE right now\n");
+    }
   
+  s->remove(old);
+
   if (old->status==LWP_LIVE){
     s->admit(old);
   }
-  
+
+  thread new = s->next();
+  fprintf(stderr, "new tid is: %d\n\n", new->tid);
+  if (new==NULL){
+    lwp_exit(3);
+  }
+ 
+
+
   currThread = new;
 
   swap_rfiles(&old->state, &new->state);
@@ -211,6 +266,8 @@ void lwp_set_scheduler(scheduler fun){
 }
 
 void lwp_exit(int status){
+fprintf(stderr, "entering exit\n");
+  scheduler s = lwp_get_scheduler();
   tid_t tid = lwp_gettid();
   if (tid==NO_THREAD){
     fprintf(stderr, "error: lwp_exit called on NO_THREAD");
@@ -224,7 +281,7 @@ void lwp_exit(int status){
       fprintf(stderr, "error: lwp_exit called on main with nonempty queue");
       abort();
     } else { //exit
-      munmap(curr, sizeof(thread));
+      munmap(curr, sizeof(context));
       exit(0);
     }
   }
@@ -233,30 +290,41 @@ void lwp_exit(int status){
   if (exitedQueue==NULL){
     exitedQueue=curr;
   } else {
-    thread head = exitedQueue;
+    thread tmp = exitedQueue;
     while (exitedQueue->exited!=NULL){
       exitedQueue = exitedQueue->exited;
     }
     exitedQueue->exited = curr;
-    exitedQueue = head;
+    exitedQueue = tmp;
   }
 
-  scheduler s = lwp_get_scheduler();
+
   
   if (waitQueue!=NULL){
-    thread newHead = waitQueue->exited;
-    waitQueue->exited=NULL;
-    waitQueue->status=LWP_LIVE;
-    s->admit(waitQueue);
-    waitQueue = newHead;    
+    thread toAdmit = waitQueue=waitQueue;
+    waitQueue = waitQueue->exited;
+    toAdmit->exited=NULL;
+    toAdmit->status=LWP_LIVE;
+    s->admit(toAdmit);
+    int l2 = s->qlen();
   }
+
   lwp_yield();
 }
 
 tid_t lwp_wait(int *status){
+  fprintf(stderr, "\nentering wait\n");
+
   scheduler s = lwp_get_scheduler();
   tid_t tid = lwp_gettid();
   thread curr = tid2thread(tid);
+
+  int l = s->qlen(); fprintf(stderr, "len is %d\n", l);
+  fprintf(stderr, "currThread tid should be 1: %d\n", currThread->tid);
+  fprintf(stderr, "curr tid should be 1: %d\n", tid);
+    
+
+
   if (exitedQueue==NULL){ //if none have exited, block thread
     if (s->qlen() <= 1){ //if there are no threads remaining
       return NO_THREAD;
@@ -265,17 +333,25 @@ tid_t lwp_wait(int *status){
     if (waitQueue==NULL){
       waitQueue=curr;
     } else {
-      thread head = waitQueue;
+      thread tmp = waitQueue;
       while (waitQueue->exited!=NULL){
         waitQueue = waitQueue->exited;
       }
       waitQueue->exited = curr;
-      waitQueue = head;
+      waitQueue = tmp;
     }
+
+    int l = s->qlen(); fprintf(stderr, "post wait len is %d\n", l);
+  fprintf(stderr, "currThread tid should be 1: %d\n", currThread->tid);
+  fprintf(stderr, "curr tid should be 1: %d\n", curr->tid);
+  fprintf(stderr, "waitQ tid should be 1: %d\n\n", waitQueue->tid);
+    nextTime = 1;
+
     lwp_yield();
   } 
    //deallocate head of exited queue
     tid_t ret = exitedQueue->tid;
+
     if (status!=NULL) {
       *status = exitedQueue->status;
     }
@@ -285,7 +361,6 @@ tid_t lwp_wait(int *status){
     }
     thread prev = threadList->lib_one;
     thread next = threadList->lib_two;
-
     if (prev==NULL && next==NULL) {
       threadList=NULL;
       return;
@@ -302,13 +377,15 @@ tid_t lwp_wait(int *status){
       threadList->lib_two=next;
     }
 
-
     //deallocate memory
     thread newHead = exitedQueue->exited;
     if (exitedQueue->tid!=(tid_t)1){
-      int i = munmap(exitedQueue->stack, exitedQueue->stacksize);
+      unsigned long size = exitedQueue->stacksize;
+      unsigned long* address = exitedQueue->stack + 3;
+      address = address - size/(sizeof(unsigned long));
+      int i = munmap(address, size);
     }
-    int j = munmap(exitedQueue, sizeof(thread));
+    int j = munmap(exitedQueue, sizeof(context));
     exitedQueue = newHead;
     return ret;
 }
